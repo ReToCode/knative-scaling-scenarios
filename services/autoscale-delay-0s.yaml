@@ -1,0 +1,16 @@
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: autoscale-delay-0s-COUNT
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/target: "10"
+        autoscaling.knative.dev/initial-scale: "0"
+    spec:
+      containers:
+        - image: gcr.io/knative-samples/autoscale-go:0.1
+
