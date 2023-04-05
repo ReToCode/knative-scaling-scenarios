@@ -13,6 +13,13 @@
 
 ## Configuration
 ```bash
+# Create random payload
+head -c $( echo 10K | numfmt --from=iec ) </dev/urandom > payload/10K
+head -c $( echo 100K | numfmt --from=iec ) </dev/urandom > payload/100K
+head -c $( echo 1000K | numfmt --from=iec ) </dev/urandom > payload/1000K
+```
+
+```bash
 # Knative config
 kubectl patch configmap/config-network \
   --namespace knative-serving \
@@ -28,33 +35,17 @@ kubectl patch -n kube-system deployment metrics-server --type=json \
   -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
 # Make sure kourier is scaled enough to not be the bottleneck
-kubectl -n kourier-system patch hpa 3scale-kourier-gateway --patch '{"spec":{"minReplicas":5}}'
-
-# Create random payload
-head -c $( echo 10K | numfmt --from=iec ) </dev/urandom > payload/10K
-head -c $( echo 100K | numfmt --from=iec ) </dev/urandom > payload/100K
-head -c $( echo 1000K | numfmt --from=iec ) </dev/urandom > payload/1000K
+kubectl -n kourier-system patch hpa 3scale-kourier-gateway --patch '{"spec":{"minReplicas":10}}'
 ```
 
-## Running tests
+## Running test scenarios
+### Environment
+All the test scenarios share the following configuration
 ```bash
 export DOMAIN=10.89.0.200.sslip.io
-export SERVICE_COUNT=15
-export BASE_REQUEST_TARGET=30 # The tests will start with this amount, then increase by *2, *4 and *6
-
-# Create the requested amount of KServices
-for (( i = 0; i < SERVICE_COUNT; i++ )); do
-    cat services/* | sed -e "s/COUNT/${i}/g" | kubectl apply -f -
-done
-
-# Wait for all services to be ready
-kubectl wait kservice --for=condition=Ready -n default --all
-
-# Run the tests
-./run_tests.sh
 ```
 
-## Results
+### Results
 The results will be written to `results` and `results/heap`. The files are prefixed with the run-timestamp:
 ```bash
 ./run_tests.sh
@@ -63,12 +54,12 @@ Starting background process to monitor activator stats and profile memory
 Running performance scenarios
 Trying to stop the background jobs, if this fails please manually check [1]-  Running                 kubectl port-forward deployment/activator -n knative-serving 8008:8008 > /dev/null 2>&1 &
 [2]+  Running                 while true; do
-    kubectl top -n knative-serving pod --containers=true | grep activator >> results/"${date}"-activator-stats.log; curl http://localhost:8008/debug/pprof/heap > results/heap/"${date}"-$(date +%s)-activator-heap.out > /dev/null 2>&1; sleep 1;
+    kubectl top -n knative-serving pod --containers=true | grep activator >> results_local/"${date}"-activator-stats.log; curl http://localhost:8008/debug/pprof/heap > results_local/heap/"${date}"-$(date +%s)-activator-heap.out > /dev/null 2>&1; sleep 1;
 done & and stop them
-The results were written to the results folder
+The results_local were written to the results_local folder
 
-tree results            
-results
+tree results_local            
+results_local
 ├── 1680616481-activator-stats.log
 ├── 1680616481-config
 ├── 1680616481-k6s-stats.log
@@ -80,7 +71,7 @@ results
 
 ### Checking heap dumps
 ```bash
-go tool pprof -http=:8080 results/heap/xxx.out
+go tool pprof -http=:8080 results_local/heap/xxx.out
 
 # Running GC and compare
 curl "http://localhost:8008/debug/pprof/heap" > out1
@@ -93,7 +84,7 @@ curl "http://localhost:8008/debug/pprof/heap" > out2
 go tool pprof -http=:8080 -diff_base out1 out2
 ```
 
-### Checking results with prometheus/grafana
+### Visualizing results with prometheus/grafana
 You need a running prometheus/grafana setup for this, locally you can run:
 ```bash
 podman run -d --name prometheus --tz=local -p 9090:9090 prom/prometheus:v2.42.0 --web.enable-remote-write-receiver --enable-feature=native-histograms --config.file=/etc/prometheus/prometheus.yml
@@ -107,8 +98,84 @@ podman run -d --name grafana --tz=local -v $PWD/visualization:/etc/grafana/provi
 export ENABLE_PROMETHEUS=true
 export PROMETHEUS_IP=$(podman inspect prometheus | jq -r '.[].NetworkSettings.IPAddress')
 
-./run_tests.sh
+./run_tests.sh <script>
 ```
 
 Check the results at [http://localhost:3000](http://localhost:3000)
 
+## Scenarios
+### 1) Activator always in path + scale to the limit
+**Description**
+This scenario tests the scaling limit of one activator and checks resource usage of that pod.
+* We have 20 already running KServices without any delays or sleeps
+* We have only one activator (HPA is set to 1-1)
+* The activator always stays in the path
+* We start with $BASE_REQUEST_TARGET VUs and slowly increase until it breaks (10 new VUs every 100ms)
+
+**Preparation**
+```bash
+# Patch Activator HPA
+kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 1}}'
+
+# Create the KService
+kubectl apply -f scenarios/activator-limit/services
+
+# Wait for all services to be ready
+kubectl wait kservice --for=condition=Ready -n default --all
+```
+
+**Running**
+```bash
+# Starting RPS, this will be doubled 10 times every 30 seconds 
+export BASE_REQUEST_TARGET=10
+./run_tests.sh scenarios/activator-limit/tests.js
+```
+
+
+### 2) Scaling with delays
+**Description**
+We have three types of KServices:
+* No startup delay
+* 5s startup delay
+* 15s startup delay
+* We have only one activator (HPA is set to 1-1) 
+* All have target of 10 RPS, so if we send 50 requests, activator will scale to 5 instances
+ 
+This scenario consists of batch requests per VU with the following matrix
+* Amount of target KServices (e.g. 1-15)
+* Startup delay: (no, 5s, 15s) --> random value
+* Slow responses: (none, 10ms, 100ms, 1000ms, 5000ms) --> random value
+* Payload: (none, 10K, 100K, 500K) --> random value
+
+**Preparation**
+```bash
+# Patch Activator HPA
+kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 1}}'
+
+# Create the requested amount of KServices
+export SERVICE_COUNT=15
+for (( i = 0; i < SERVICE_COUNT; i++ )); do
+    cat scenarios/scaling/services/* | sed -e "s/COUNT/${i}/g" | kubectl apply -f -
+done
+
+# Wait for all services to be ready
+kubectl wait kservice --for=condition=Ready -n default --all
+```
+
+**Running**
+```bash
+# This targets k6's Virtual Users (https://k6.io/docs/get-started/running-k6/)
+# each VU does multiple requests, depending on the scenario. VUs are essentially parallel while(true) loops.
+# Tests will start with this base VU value and increase the load over time
+export BASE_REQUEST_TARGET=30
+export SERVICE_COUNT=15 # same as above
+
+./run_tests.sh scenarios/scaling/tests.js
+```
+
+
+## Cleanup
+```bash
+kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 20}}'
+kubectl delete ksvc --all -A
+```
