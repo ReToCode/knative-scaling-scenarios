@@ -1,5 +1,9 @@
 # Knative Scaling Scenarios
 
+## References
+* [Upstream performance testing](https://github.com/knative/serving/issues/1625#issuecomment-511930023)
+* [Upstream autoscale-go](https://github.com/knative/docs/tree/main/docs/serving/autoscaling/autoscale-go)
+
 ## Prerequisites
 * A kubernetes cluster
 * Configured `kubectl` pointing to the cluster

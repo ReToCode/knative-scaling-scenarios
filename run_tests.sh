@@ -19,9 +19,9 @@ done &
 
 echo "Running performance scenarios"
 if [[ -z $ENABLE_DASHBOARD ]]; then
-  // TODO
+  podman run --rm -v $PWD:/code -i grafana/k6 -e DOMAIN=$DOMAIN -e DATE=$date -e BASE_REQUEST_TARGET=$BASE_REQUEST_TARGET -e SERVICE_COUNT=$SERVICE_COUNT run /code/tests/tests.js > results/"${date}"-k6-stats.log 2>&1
 else
-  podman run --rm -v $PWD:/code -i grafana/k6 -e DOMAIN=$DOMAIN -e BASE_REQUEST_TARGET=$BASE_REQUEST_TARGET -e SERVICE_COUNT=$SERVICE_COUNT run /code/tests/tests.js > results/"${date}"-k6-stats.log 2>&1
+  echo "Dashboard enabled"
 fi
 
 echo "Trying to stop the background jobs, if this fails please manually check `jobs` and stop them"
