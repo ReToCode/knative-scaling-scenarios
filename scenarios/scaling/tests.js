@@ -17,6 +17,8 @@ export const options = {
         {duration: '30s', target: requestTarget * 2},
         {duration: '30s', target: requestTarget * 4},
         {duration: '30s', target: requestTarget * 6},
+        {duration: '30s', target: requestTarget * 8},
+        {duration: '30s', target: requestTarget * 10},
     ],
     noConnectionReuse: true,
     userAgent: 'k6s.io/1.0',

@@ -110,7 +110,7 @@ This scenario tests the scaling limit of one activator and checks resource usage
 * We have 20 already running KServices without any delays or sleeps
 * We have only one activator (HPA is set to 1-1)
 * The activator always stays in the path
-* We start with $BASE_REQUEST_TARGET VUs and slowly increase until it breaks (10 new VUs every 100ms)
+* We start with $BASE_REQUEST_TARGET and double it every 30 seconds
 
 **Preparation**
 ```bash
