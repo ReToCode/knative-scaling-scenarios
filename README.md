@@ -3,6 +3,7 @@
 ## References
 * [Upstream performance testing](https://github.com/knative/serving/issues/1625#issuecomment-511930023)
 * [Upstream autoscale-go](https://github.com/knative/docs/tree/main/docs/serving/autoscaling/autoscale-go)
+* [xk6-output-prometheus-remote](https://github.com/grafana/xk6-output-prometheus-remote)
 
 ## Prerequisites
 * A kubernetes cluster
@@ -93,11 +94,21 @@ go tool pprof -http=:8080 -diff_base out1 out2
 ```
 
 ### Checking results with prometheus/grafana
-TODO: https://github.com/javaducky/k6-office-hours-047
+You need a running prometheus/grafana setup for this, locally you can run:
 ```bash
-# Enable dashboard run
-export ENABLE_DASHBOARD=true
+podman run -d --name prometheus --tz=local -p 9090:9090 prom/prometheus:v2.42.0 --web.enable-remote-write-receiver --enable-feature=native-histograms --config.file=/etc/prometheus/prometheus.yml
+PROMETHEUS_IP=$(podman inspect prometheus | jq -r '.[].NetworkSettings.IPAddress')
+sed "s/PROMETHEUSIP/${PROMETHEUS_IP}/g" visualization/datasource-template.yaml > visualization/datasources/datasource.yaml
+podman run -d --name grafana --tz=local -v $PWD/visualization:/etc/grafana/provisioning/ -p 3000:3000 -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin -e GF_AUTH_ANONYMOUS_ENABLED=true -e GF_AUTH_BASIC_ENABLED=false grafana/grafana:9.4.3
+```
 
-# Same as above
+```bash
+# Enable reporting metrics to prometheus
+export ENABLE_PROMETHEUS=true
+export PROMETHEUS_IP=$(podman inspect prometheus | jq -r '.[].NetworkSettings.IPAddress')
+
 ./run_tests.sh
 ```
+
+Check the results at [http://localhost:3000](http://localhost:3000)
+
