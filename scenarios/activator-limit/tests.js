@@ -1,9 +1,9 @@
 import http from 'k6/http';
 import {check, sleep} from 'k6';
 
-const clusterDomain = `default.${__ENV.DOMAIN}`;
-const autoscaleUrlPrefix = 'http://autoscale-fixed-amount';
-
+const clusterDomain = __ENV.DOMAIN;
+const isOCP = clusterDomain.includes("openshift.com")
+const serviceName = 'autoscale-fixed-amount';
 const requestTarget = __ENV.BASE_REQUEST_TARGET;
 
 export const options = {
@@ -20,14 +20,15 @@ export const options = {
         { target: __ENV.BASE_REQUEST_TARGET * 512, duration: '30s' },
     ],
     noConnectionReuse: true,
-    userAgent: 'k6s.io/1.0',
+    userAgent: 'k6.io/1.0',
+    insecureSkipTLSVerify: isOCP,
 };
 
 
 export default function () {
     const requests = [{
         method: 'POST',
-        url: `${autoscaleUrlPrefix}.${clusterDomain}`
+        url: `${isOCP ? 'https://' : 'http://'}${serviceName}${isOCP ? "-default." : ".default."}${clusterDomain}`
     }];
 
     callAndCheck(requests);

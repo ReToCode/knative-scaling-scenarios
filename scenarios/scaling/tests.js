@@ -3,8 +3,9 @@ import {check, sleep} from 'k6';
 import {Counter} from 'k6/metrics';
 import {randomItem} from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
 
-const clusterDomain = `default.${__ENV.DOMAIN}`;
-const autoscaleUrlPrefix = 'http://autoscale-delay';
+const clusterDomain = __ENV.DOMAIN;
+const isOCP = clusterDomain.includes("openshift.com")
+const serviceName = 'autoscale-delay';
 
 const smallPayload = open('../payload/10K');
 const mediumPayload = open('../payload/100K');
@@ -21,7 +22,8 @@ export const options = {
         {duration: '30s', target: requestTarget * 10},
     ],
     noConnectionReuse: true,
-    userAgent: 'k6s.io/1.0',
+    userAgent: 'k6.io/1.0',
+    insecureSkipTLSVerify: isOCP,
 };
 
 const startupDelays = ['0s', '5s', '15s'];
@@ -66,7 +68,7 @@ export default function () {
 
         requests.push({
             method: 'POST',
-            url: `${autoscaleUrlPrefix}-${delay}-${i}.${clusterDomain}?sleep=${sleep}`,
+            url: `${isOCP ? 'https://' : 'http://'}${serviceName}-${delay}-${i}${isOCP ? "-default." : ".default."}${clusterDomain}?sleep=${sleep}`,
             payload: payload.payload
         })
     }

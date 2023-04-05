@@ -19,6 +19,7 @@ head -c $( echo 100K | numfmt --from=iec ) </dev/urandom > payload/100K
 head -c $( echo 1000K | numfmt --from=iec ) </dev/urandom > payload/1000K
 ```
 
+### Kind
 ```bash
 # Knative config
 kubectl patch configmap/config-network \
@@ -36,6 +37,13 @@ kubectl patch -n kube-system deployment metrics-server --type=json \
 
 # Make sure kourier is scaled enough to not be the bottleneck
 kubectl -n kourier-system patch hpa 3scale-kourier-gateway --patch '{"spec":{"minReplicas":10}}'
+```
+
+### OpenShift
+```bash
+# Install Operator and Knative Serving
+oc apply -f openshift/serverless-operator.yaml
+oc apply -f openshift/knative-serving.yaml
 ```
 
 ## Running test scenarios
@@ -114,8 +122,11 @@ This scenario tests the scaling limit of one activator and checks resource usage
 
 **Preparation**
 ```bash
-# Patch Activator HPA
+# Kind: Patch Activator HPA
 kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 1}}'
+
+# OCP: Patch Activator HPA
+//TODO
 
 # Create the KService
 kubectl apply -f scenarios/activator-limit/services
@@ -149,8 +160,11 @@ This scenario consists of batch requests per VU with the following matrix
 
 **Preparation**
 ```bash
-# Patch Activator HPA
+# Kind: Patch Activator HPA
 kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 1}}'
+
+# OCP: Patch Activator HPA
+// TODO
 
 # Create the requested amount of KServices
 export SERVICE_COUNT=15
@@ -176,6 +190,12 @@ export SERVICE_COUNT=15 # same as above
 
 ## Cleanup
 ```bash
+# Kind
 kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 20}}'
+
+# OCP
+// TODO
+
+# Cleanup KServices
 kubectl delete ksvc --all -A
 ```
