@@ -126,7 +126,8 @@ This scenario tests the scaling limit of one activator and checks resource usage
 kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 1}}'
 
 # OCP: Patch Activator HPA
-//TODO
+oc apply -f openshift/knative-serving-one-activator.yaml
+kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 1}}'
 
 # Create the KService
 kubectl apply -f scenarios/activator-limit/services
@@ -138,6 +139,7 @@ kubectl wait kservice --for=condition=Ready -n default --all
 **Running**
 ```bash
 # Starting RPS, this will be doubled 10 times every 30 seconds 
+export SERVICE_COUNT=1
 export BASE_REQUEST_TARGET=10
 ./run_tests.sh scenarios/activator-limit/tests.js
 ```
@@ -194,7 +196,7 @@ export SERVICE_COUNT=15 # same as above
 kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":1, "maxReplicas": 20}}'
 
 # OCP
-// TODO
+oc apply -f openshift/knative-serving-default.yaml
 
 # Cleanup KServices
 kubectl delete ksvc --all -A

@@ -7,6 +7,3 @@ spec:
   ingress:
     kourier:
       enabled: true
-  deployments:
-    - name: 3scale-kourier-gateway
-      replicas: 10

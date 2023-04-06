@@ -20,7 +20,7 @@ done &
 
 echo "Running performance scenarios"
 if [[ -z $ENABLE_PROMETHEUS ]]; then
-  echo "Reporting results to a file in `results_local` folder"
+  echo "Reporting results to a file in results_local folder"
   podman run --rm -v $PWD:/code -i grafana/k6 -e DOMAIN=$DOMAIN -e DATE=$date -e BASE_REQUEST_TARGET=$BASE_REQUEST_TARGET -e SERVICE_COUNT=$SERVICE_COUNT run /code/$script > results_local/"${date}"-k6-stats.log 2>&1
 else
   echo "Reporting results to prometheus/grafana"

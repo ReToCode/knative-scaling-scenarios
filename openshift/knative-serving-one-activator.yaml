@@ -8,5 +8,7 @@ spec:
     kourier:
       enabled: true
   deployments:
+    - name: activator
+      replicas: 1
     - name: 3scale-kourier-gateway
       replicas: 10
