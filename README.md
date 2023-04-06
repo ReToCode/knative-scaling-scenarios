@@ -47,7 +47,14 @@ oc apply -f openshift/knative-serving.yaml
 ```
 
 ## Running test scenarios
-### Environment
+### Environment set up
+```bash
+kubectl apply -f visualization/prometheus
+kubectl apply -f visualization/grafana
+```
+
+// TODO: HERE
+
 All the test scenarios share the following configuration
 ```bash
 export DOMAIN=10.89.0.200.sslip.io
@@ -92,22 +99,6 @@ curl "http://localhost:8008/debug/pprof/heap" > out2
 go tool pprof -http=:8080 -diff_base out1 out2
 ```
 
-### Visualizing results with prometheus/grafana
-You need a running prometheus/grafana setup for this, locally you can run:
-```bash
-podman run -d --name prometheus --tz=local -p 9090:9090 prom/prometheus:v2.42.0 --web.enable-remote-write-receiver --enable-feature=native-histograms --config.file=/etc/prometheus/prometheus.yml
-PROMETHEUS_IP=$(podman inspect prometheus | jq -r '.[].NetworkSettings.IPAddress')
-sed "s/PROMETHEUSIP/${PROMETHEUS_IP}/g" visualization/datasource-template.yaml > visualization/datasources/datasource.yaml
-podman run -d --name grafana --tz=local -v $PWD/visualization:/etc/grafana/provisioning/ -p 3000:3000 -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin -e GF_AUTH_ANONYMOUS_ENABLED=true -e GF_AUTH_BASIC_ENABLED=false grafana/grafana:9.4.3
-```
-
-```bash
-# Enable reporting metrics to prometheus
-export ENABLE_PROMETHEUS=true
-export PROMETHEUS_IP=$(podman inspect prometheus | jq -r '.[].NetworkSettings.IPAddress')
-
-./run_tests.sh <script>
-```
 
 Check the results at [http://localhost:3000](http://localhost:3000)
 
